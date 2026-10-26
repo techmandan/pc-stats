@@ -33,9 +33,21 @@ Panel {
   readonly property bool ramHigh: service.ram.percent >= 90
   readonly property bool gpuHigh: service.gpu.percent >= 95 || (service.gpu.tempC !== null && service.gpu.tempC >= 90)
 
+  // Locked anchor geometry while the popup panel is open so top bar movement
+  // never shifts the open popup panel on screen.
+  property real lockedButtonRightOffset: 0
+  property real lockedButtonWidth: 0
+  property bool anchorLocked: false
+
   readonly property real openPanelIndicatorWidth: root.vertical
     ? 0
     : Math.max(Style.space(16), metricsRow.implicitWidth)
+
+  FontMetrics {
+    id: barMetrics
+    font.family: root.fontFamily
+    font.pixelSize: Style.font.body
+  }
 
   function updateSetting(key, value) {
     var next = { id: root.moduleName }
@@ -74,9 +86,14 @@ Panel {
 
   onOpenedChanged: {
     if (opened) {
+      lockedButtonWidth = button.width
+      lockedButtonRightOffset = 0
+      anchorLocked = true
       if (panelFlick) panelFlick.contentY = 0
       service.refresh()
       Qt.callLater(function () { keyCatcher.forceActiveFocus() })
+    } else {
+      anchorLocked = false
     }
   }
 
@@ -95,6 +112,22 @@ Panel {
       ? root.barSize
       : Math.max(Style.bar.iconSlot, metricsRow.implicitWidth + Style.space(16))
     fixedHeight: root.vertical ? Style.bar.iconSlot : root.barSize
+
+    // Static anchor proxy pinned to the button's right edge when opened.
+    // Because the right bar section is right-anchored on the screen, pinning
+    // the proxy to `button.width - lockedButtonWidth` keeps its screen X and
+    // width 100% constant even if `button.width` changes while the panel is open.
+    Item {
+      id: popupAnchorProxy
+      x: root.anchorLocked && root.lockedButtonWidth > 0
+        ? (button.width - root.lockedButtonWidth)
+        : 0
+      y: 0
+      width: root.anchorLocked && root.lockedButtonWidth > 0
+        ? root.lockedButtonWidth
+        : button.width
+      height: button.height
+    }
 
     tooltipText: {
       if (!service.ready) return "PC Stats (Collecting telemetry…)"
@@ -125,7 +158,8 @@ Panel {
       else root.toggle()
     }
 
-    // Horizontal bar layout: CPU · RAM · GPU · Network
+    // Horizontal bar layout: CPU · RAM · GPU · Network with fixed-width value slots
+    // so digit changes never cause the top bar to jitter.
     Row {
       id: metricsRow
       visible: !root.vertical
@@ -148,6 +182,7 @@ Panel {
         }
 
         Text {
+          id: cpuBarText
           textFormat: Text.PlainText
           text: {
             var s = Model.formatPercent(service.cpu.percent)
@@ -156,6 +191,11 @@ Panel {
             }
             return s
           }
+          width: Math.max(
+            implicitWidth,
+            Math.ceil(barMetrics.advanceWidth(root.showTempOnBar ? "100% 99°C" : "100%"))
+          )
+          horizontalAlignment: Text.AlignRight
           color: root.cpuHigh ? root.urgent : root.barTextColor
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
@@ -181,6 +221,11 @@ Panel {
         Text {
           textFormat: Text.PlainText
           text: Model.formatRamBar(service.ram, root.ramFormat)
+          width: Math.max(
+            implicitWidth,
+            Math.ceil(barMetrics.advanceWidth(root.ramFormat === "gb" ? "99.9G" : "100%"))
+          )
+          horizontalAlignment: Text.AlignRight
           color: root.ramHigh ? root.urgent : root.barTextColor
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
@@ -212,6 +257,11 @@ Panel {
             }
             return s
           }
+          width: Math.max(
+            implicitWidth,
+            Math.ceil(barMetrics.advanceWidth(root.showTempOnBar ? "100% 99°C" : "100%"))
+          )
+          horizontalAlignment: Text.AlignRight
           color: root.gpuHigh ? root.urgent : root.barTextColor
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
@@ -236,13 +286,82 @@ Panel {
           anchors.verticalCenter: parent.verticalCenter
         }
 
+        // Offline label
         Text {
+          visible: !service.network.connected
           textFormat: Text.PlainText
-          text: Model.formatNetworkBar(service.network, root.networkFormat)
-          color: !service.network.connected ? root.urgent : root.barTextColor
+          text: "Offline"
+          color: root.urgent
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
           anchors.verticalCenter: parent.verticalCenter
+        }
+
+        // Connected: Total-only mode
+        Text {
+          visible: service.network.connected && root.networkFormat === "total"
+          textFormat: Text.PlainText
+          text: Model.formatRateCompact((service.network.rxBytesPerSec || 0) + (service.network.txBytesPerSec || 0))
+          width: Math.max(implicitWidth, Math.ceil(barMetrics.advanceWidth("999.9M")))
+          horizontalAlignment: Text.AlignRight
+          color: root.barTextColor
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.body
+          anchors.verticalCenter: parent.verticalCenter
+        }
+
+        // Connected: Download slot (shown in "both" and "down" modes)
+        Row {
+          visible: service.network.connected && root.networkFormat !== "total"
+          spacing: 1
+          anchors.verticalCenter: parent.verticalCenter
+
+          Text {
+            textFormat: Text.PlainText
+            text: "↓"
+            color: root.barDim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            anchors.verticalCenter: parent.verticalCenter
+          }
+
+          Text {
+            textFormat: Text.PlainText
+            text: Model.formatRateCompact(service.network.rxBytesPerSec)
+            width: Math.max(implicitWidth, Math.ceil(barMetrics.advanceWidth("999.9M")))
+            horizontalAlignment: Text.AlignRight
+            color: root.barTextColor
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            anchors.verticalCenter: parent.verticalCenter
+          }
+        }
+
+        // Connected: Upload slot (shown in "both" mode)
+        Row {
+          visible: service.network.connected && root.networkFormat === "both"
+          spacing: 1
+          anchors.verticalCenter: parent.verticalCenter
+
+          Text {
+            textFormat: Text.PlainText
+            text: "↑"
+            color: root.barDim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            anchors.verticalCenter: parent.verticalCenter
+          }
+
+          Text {
+            textFormat: Text.PlainText
+            text: Model.formatRateCompact(service.network.txBytesPerSec)
+            width: Math.max(implicitWidth, Math.ceil(barMetrics.advanceWidth("999.9M")))
+            horizontalAlignment: Text.AlignRight
+            color: root.barTextColor
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            anchors.verticalCenter: parent.verticalCenter
+          }
         }
       }
 
@@ -266,12 +385,12 @@ Panel {
 
   KeyboardPanel {
     id: panel
-    anchorItem: button
+    anchorItem: popupAnchorProxy
     owner: root
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(400))
+    contentWidth: panel.fittedContentWidth(Style.space(404))
     contentHeight: panel.fittedContentHeight(column.implicitHeight + Style.space(20), Style.space(820))
 
     PanelKeyCatcher {
@@ -305,7 +424,8 @@ Panel {
 
         Column {
           id: column
-          width: panelFlick.width
+          x: Style.space(2)
+          width: Math.max(0, panelFlick.width - Style.space(4))
           spacing: Style.space(12)
 
           PanelHero {
@@ -347,44 +467,40 @@ Panel {
             width: parent.width
             spacing: Style.space(8)
 
-            RowLayout {
+            SectionTitleRow {
               width: parent.width
-              PanelSectionHeader {
-                text: "PROCESSOR"
-                foreground: root.foreground
-                fontFamily: root.fontFamily
-                Layout.fillWidth: true
+              title: "PROCESSOR"
+              rightText: {
+                var p = []
+                if (service.cpu.freqMhz > 0) p.push(Model.formatFreq(service.cpu.freqMhz))
+                if (service.cpu.tempC !== null) p.push(Model.formatTemp(service.cpu.tempC))
+                return p.join(" · ")
               }
-              Text {
-                textFormat: Text.PlainText
-                text: {
-                  var p = []
-                  if (service.cpu.freqMhz > 0) p.push(Model.formatFreq(service.cpu.freqMhz))
-                  if (service.cpu.tempC !== null) p.push(Model.formatTemp(service.cpu.tempC))
-                  return p.join(" · ")
-                }
-                color: root.cpuHigh ? root.urgent : root.dim
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-                font.bold: true
-              }
+              rightUrgent: root.cpuHigh
             }
 
-            RowLayout {
+            Item {
               width: parent.width
-              spacing: Style.space(8)
+              implicitHeight: Math.max(cpuModelText.implicitHeight, cpuCoresText.implicitHeight)
 
               Text {
+                id: cpuModelText
+                anchors.left: parent.left
+                anchors.right: cpuCoresText.left
+                anchors.rightMargin: Style.space(8)
+                anchors.verticalCenter: parent.verticalCenter
                 textFormat: Text.PlainText
                 text: service.cpu.model
                 color: root.foreground
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.bodySmall
                 elide: Text.ElideRight
-                Layout.fillWidth: true
               }
 
               Text {
+                id: cpuCoresText
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
                 textFormat: Text.PlainText
                 text: service.cpu.cores + "C / " + service.cpu.threads + "T"
                 color: root.dim
@@ -470,22 +586,11 @@ Panel {
             width: parent.width
             spacing: Style.space(8)
 
-            RowLayout {
+            SectionTitleRow {
               width: parent.width
-              PanelSectionHeader {
-                text: "MEMORY"
-                foreground: root.foreground
-                fontFamily: root.fontFamily
-                Layout.fillWidth: true
-              }
-              Text {
-                textFormat: Text.PlainText
-                text: Model.formatBytesGiB(service.ram.usedBytes, 1) + " / " + Model.formatBytesGiB(service.ram.totalBytes, 1)
-                color: root.ramHigh ? root.urgent : root.dim
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-                font.bold: true
-              }
+              title: "MEMORY"
+              rightText: Model.formatBytesGiB(service.ram.usedBytes, 1) + " / " + Model.formatBytesGiB(service.ram.totalBytes, 1)
+              rightUrgent: root.ramHigh
             }
 
             MetricBarRow {
@@ -528,28 +633,17 @@ Panel {
             width: parent.width
             spacing: Style.space(8)
 
-            RowLayout {
+            SectionTitleRow {
               width: parent.width
-              PanelSectionHeader {
-                text: "GRAPHICS"
-                foreground: root.foreground
-                fontFamily: root.fontFamily
-                Layout.fillWidth: true
+              title: "GRAPHICS"
+              rightText: {
+                var p = []
+                if (service.gpu.clockMhz !== null && service.gpu.clockMhz > 0) p.push(service.gpu.clockMhz + " MHz")
+                if (service.gpu.powerWatts !== null) p.push(Math.round(service.gpu.powerWatts) + "W")
+                if (service.gpu.tempC !== null) p.push(Model.formatTemp(service.gpu.tempC))
+                return p.join(" · ")
               }
-              Text {
-                textFormat: Text.PlainText
-                text: {
-                  var p = []
-                  if (service.gpu.clockMhz !== null && service.gpu.clockMhz > 0) p.push(service.gpu.clockMhz + " MHz")
-                  if (service.gpu.powerWatts !== null) p.push(Math.round(service.gpu.powerWatts) + "W")
-                  if (service.gpu.tempC !== null) p.push(Model.formatTemp(service.gpu.tempC))
-                  return p.join(" · ")
-                }
-                color: root.gpuHigh ? root.urgent : root.dim
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-                font.bold: true
-              }
+              rightUrgent: root.gpuHigh
             }
 
             Text {
@@ -614,61 +708,46 @@ Panel {
             width: parent.width
             spacing: Style.space(8)
 
-            RowLayout {
+            SectionTitleRow {
               width: parent.width
-              PanelSectionHeader {
-                text: "NETWORK"
-                foreground: root.foreground
-                fontFamily: root.fontFamily
-                Layout.fillWidth: true
-              }
-              Text {
-                textFormat: Text.PlainText
-                text: service.network.connected
-                  ? (service.network.ip || service.network.interface)
-                  : "Disconnected"
-                color: service.network.connected ? root.dim : root.urgent
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-                font.bold: true
-              }
+              title: "NETWORK"
+              rightText: service.network.connected
+                ? (service.network.ip || service.network.interface)
+                : "Disconnected"
+              rightUrgent: !service.network.connected
             }
 
-            RowLayout {
+            Text {
               width: parent.width
-              spacing: Style.space(8)
-
-              Text {
-                textFormat: Text.PlainText
-                text: {
-                  if (!service.network.connected) return "No active network interface"
-                  var kind = service.network.kind === "wifi" ? "Wi-Fi" : "Ethernet"
-                  var s = service.network.interface + " (" + kind
-                  var spd = Model.formatLinkSpeed(service.network.linkSpeedMbps)
-                  if (spd) s += " · " + spd
-                  return s + ")"
-                }
-                color: root.foreground
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.bodySmall
-                elide: Text.ElideRight
-                Layout.fillWidth: true
+              textFormat: Text.PlainText
+              text: {
+                if (!service.network.connected) return "No active network interface"
+                var kind = service.network.kind === "wifi" ? "Wi-Fi" : "Ethernet"
+                var s = service.network.interface + " (" + kind
+                var spd = Model.formatLinkSpeed(service.network.linkSpeedMbps)
+                if (spd) s += " · " + spd
+                return s + ")"
               }
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.bodySmall
+              elide: Text.ElideRight
             }
 
-            RowLayout {
+            Row {
+              id: netCardsRow
               width: parent.width
               spacing: Style.space(8)
 
               NetCard {
-                Layout.fillWidth: true
+                width: Math.floor((netCardsRow.width - Style.space(8)) / 2)
                 title: "↓ DOWNLOAD"
                 rateText: Model.formatRateDetailed(service.network.rxBytesPerSec)
                 totalText: "Total " + Model.formatBytesAuto(service.network.rxTotalBytes)
               }
 
               NetCard {
-                Layout.fillWidth: true
+                width: Math.floor((netCardsRow.width - Style.space(8)) / 2)
                 title: "↑ UPLOAD"
                 rateText: Model.formatRateDetailed(service.network.txBytesPerSec)
                 totalText: "Total " + Model.formatBytesAuto(service.network.txTotalBytes)
@@ -735,7 +814,37 @@ Panel {
     }
   }
 
-  component MetricBarRow: RowLayout {
+  component SectionTitleRow: Item {
+    id: secRow
+    property string title: ""
+    property string rightText: ""
+    property bool rightUrgent: false
+
+    implicitHeight: Math.max(secHeader.implicitHeight, secRight.implicitHeight)
+
+    PanelSectionHeader {
+      id: secHeader
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      text: secRow.title
+      foreground: root.foreground
+      fontFamily: root.fontFamily
+    }
+
+    Text {
+      id: secRight
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      textFormat: Text.PlainText
+      text: secRow.rightText
+      color: secRow.rightUrgent ? root.urgent : root.dim
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+      font.bold: true
+    }
+  }
+
+  component MetricBarRow: Item {
     id: metricRow
     property string label: ""
     property real fraction: 0
@@ -743,59 +852,66 @@ Panel {
     property string subText: ""
     property bool isUrgent: false
 
-    spacing: Style.space(8)
+    implicitHeight: innerLayout.implicitHeight
 
-    Text {
-      textFormat: Text.PlainText
-      text: metricRow.label
-      color: root.foreground
-      opacity: 0.78
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.bodySmall
-      Layout.preferredWidth: Style.space(42)
-    }
+    RowLayout {
+      id: innerLayout
+      anchors.left: parent.left
+      anchors.right: parent.right
+      spacing: Style.space(8)
 
-    Rectangle {
-      id: track
-      Layout.fillWidth: true
-      Layout.alignment: Qt.AlignVCenter
-      implicitHeight: Style.space(6)
-      radius: height / 2
-      color: Qt.darker(root.foreground, 3.2)
+      Text {
+        textFormat: Text.PlainText
+        text: metricRow.label
+        color: root.foreground
+        opacity: 0.78
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+        Layout.preferredWidth: Style.space(42)
+      }
 
       Rectangle {
-        width: Math.max(0, Math.min(track.width, track.width * metricRow.fraction))
-        height: parent.height
-        radius: parent.radius
-        color: metricRow.isUrgent ? root.urgent : Color.accent
+        id: track
+        Layout.fillWidth: true
+        Layout.alignment: Qt.AlignVCenter
+        implicitHeight: Style.space(6)
+        radius: height / 2
+        color: Qt.darker(root.foreground, 3.2)
 
-        Behavior on width {
-          NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+        Rectangle {
+          width: Math.max(0, Math.min(track.width, track.width * metricRow.fraction))
+          height: parent.height
+          radius: parent.radius
+          color: metricRow.isUrgent ? root.urgent : Color.accent
+
+          Behavior on width {
+            NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+          }
         }
       }
-    }
 
-    Text {
-      textFormat: Text.PlainText
-      text: metricRow.valueText
-      color: metricRow.isUrgent ? root.urgent : root.foreground
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.bodySmall
-      font.bold: true
-      horizontalAlignment: Text.AlignRight
-      Layout.preferredWidth: Style.space(38)
-    }
+      Text {
+        textFormat: Text.PlainText
+        text: metricRow.valueText
+        color: metricRow.isUrgent ? root.urgent : root.foreground
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+        font.bold: true
+        horizontalAlignment: Text.AlignRight
+        Layout.preferredWidth: Style.space(38)
+      }
 
-    Text {
-      visible: metricRow.subText !== ""
-      textFormat: Text.PlainText
-      text: metricRow.subText
-      color: root.dim
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
-      horizontalAlignment: Text.AlignRight
-      elide: Text.ElideRight
-      Layout.preferredWidth: Style.space(102)
+      Text {
+        visible: metricRow.subText !== ""
+        textFormat: Text.PlainText
+        text: metricRow.subText
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        horizontalAlignment: Text.AlignRight
+        elide: Text.ElideRight
+        Layout.preferredWidth: Style.space(102)
+      }
     }
   }
 
@@ -820,29 +936,35 @@ Panel {
       spacing: Style.space(2)
 
       Text {
+        width: parent.width
         textFormat: Text.PlainText
         text: netCard.title
         color: root.dim
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
         font.bold: true
+        elide: Text.ElideRight
       }
 
       Text {
+        width: parent.width
         textFormat: Text.PlainText
         text: netCard.rateText
         color: root.foreground
         font.family: root.fontFamily
         font.pixelSize: Style.font.body
         font.bold: true
+        elide: Text.ElideRight
       }
 
       Text {
+        width: parent.width
         textFormat: Text.PlainText
         text: netCard.totalText
         color: root.dim
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
+        elide: Text.ElideRight
       }
     }
   }
