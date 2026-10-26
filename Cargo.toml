@@ -1,0 +1,18 @@
+[package]
+name = "pc-stats"
+version = "1.0.0"
+edition = "2021"
+authors = ["Tech Man Dan <dan.inman@hotmail.co.uk>"]
+description = "Native Rust hardware telemetry engine for the Omarchy PC Stats bar plugin"
+license = "MIT"
+
+[[bin]]
+name = "pc-stats"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

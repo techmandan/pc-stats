@@ -10,6 +10,7 @@ Item {
   property var settings: ({})
 
   property bool ready: false
+  property bool bootstrapped: false
   property string hostname: "System"
   property int uptimeSec: 0
 
@@ -40,7 +41,8 @@ Item {
     return path
   }
 
-  readonly property string collectorPath: pluginDir + "/collect.py"
+  readonly property string binaryPath: pluginDir + "/bin/pc-stats"
+  readonly property string setupPath: pluginDir + "/setup"
 
   function pushHistory(arr, value) {
     var next = arr ? arr.slice() : []
@@ -83,32 +85,46 @@ Item {
 
   Timer {
     id: restartTimer
-    interval: 250
+    interval: 300
     repeat: false
     onTriggered: {
-      if (!streamProcess.running) {
+      if (!streamProcess.running && !bootstrapProcess.running) {
         streamProcess.running = true
       }
     }
   }
 
   Process {
-    id: streamProcess
-    command: ["python3", "-u", root.collectorPath, "--watch", String(root.refreshIntervalSec)]
-    running: true
-    stdout: SplitParser {
-      onRead: function(data) {
-        root.applySnapshot(data)
-      }
-    }
+    id: bootstrapProcess
+    command: [root.setupPath]
+    running: false
     onExited: {
       restartTimer.restart()
     }
   }
 
   Process {
+    id: streamProcess
+    command: [root.binaryPath, "--watch", String(root.refreshIntervalSec)]
+    running: true
+    stdout: SplitParser {
+      onRead: function(data) {
+        root.applySnapshot(data)
+      }
+    }
+    onExited: function(exitCode) {
+      if (!root.ready && !root.bootstrapped && exitCode !== 0) {
+        root.bootstrapped = true
+        bootstrapProcess.running = true
+      } else {
+        restartTimer.restart()
+      }
+    }
+  }
+
+  Process {
     id: oneshotProcess
-    command: ["python3", root.collectorPath]
+    command: [root.binaryPath]
     running: false
     stdout: StdioCollector {
       waitForEnd: true

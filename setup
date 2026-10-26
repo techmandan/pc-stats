@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")" && pwd)"
+
+# Build release Rust binary and place in bin/
+cargo build --release --manifest-path "$root/Cargo.toml"
+mkdir -p "$root/bin"
+install -Dm755 "$root/target/release/pc-stats" "$root/bin/pc-stats"
+chmod +x "$root/bin/pc-stats" "$root/setup"
+
+echo "PC Stats native Rust engine built and installed to $root/bin/pc-stats"
