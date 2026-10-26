@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "id": "pc-stats",
+  "name": "PC Stats",
+  "version": "1.0.0",
+  "author": "techmandan",
+  "license": "MIT",
+  "description": "Real-time CPU, RAM, GPU, and network telemetry on the Omarchy bar with an interactive hardware monitor panel",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "PC Stats",
+    "description": "Live CPU, RAM, GPU, and network speed on the bar with a detailed system telemetry popup",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "showCpu": true,
+      "showRam": true,
+      "showGpu": true,
+      "showNetwork": true,
+      "ramFormat": "percent",
+      "networkFormat": "both",
+      "showTempOnBar": false,
+      "refreshIntervalSec": 2
+    },
+    "schema": [
+      {
+        "key": "showCpu",
+        "type": "boolean",
+        "label": "Show CPU usage on the bar",
+        "defaultValue": true
+      },
+      {
+        "key": "showRam",
+        "type": "boolean",
+        "label": "Show RAM usage on the bar",
+        "defaultValue": true
+      },
+      {
+        "key": "showGpu",
+        "type": "boolean",
+        "label": "Show GPU usage on the bar",
+        "defaultValue": true
+      },
+      {
+        "key": "showNetwork",
+        "type": "boolean",
+        "label": "Show network speed on the bar",
+        "defaultValue": true
+      },
+      {
+        "key": "ramFormat",
+        "type": "enum",
+        "label": "RAM display format on the bar",
+        "options": [
+          "percent",
+          "gb"
+        ],
+        "defaultValue": "percent"
+      },
+      {
+        "key": "networkFormat",
+        "type": "enum",
+        "label": "Network display format on the bar",
+        "options": [
+          "both",
+          "down",
+          "total"
+        ],
+        "defaultValue": "both"
+      },
+      {
+        "key": "showTempOnBar",
+        "type": "boolean",
+        "label": "Show CPU & GPU temperatures on the bar",
+        "defaultValue": false
+      },
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 1,
+        "max": 30,
+        "step": 1,
+        "defaultValue": 2
+      }
+    ]
+  }
+}
