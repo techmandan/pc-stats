@@ -478,9 +478,6 @@ Panel {
             width: parent.width
             title: service.hostname
             meta: "UP " + Model.formatUptime(service.uptimeSec) + " · LOAD " + service.cpu.load1m.toFixed(2)
-            detail: service.gpu.available && service.gpu.powerWatts !== null
-              ? Math.round(service.gpu.powerWatts) + "W GPU"
-              : Model.formatPercent(service.cpu.percent) + " CPU"
             foreground: root.foreground
             fontFamily: root.fontFamily
             iconComponent: Component {
@@ -495,13 +492,41 @@ Panel {
               }
             }
             trailingControl: Component {
-              PanelActionButton {
-                iconText: "󰄨"
-                tooltipText: "Open btop (B)"
-                foreground: root.foreground
-                fontFamily: root.fontFamily
-                bordered: true
-                onClicked: root.launchBtop()
+              Row {
+                spacing: Style.space(6)
+
+                BorderSurface {
+                  implicitWidth: heroDetailText.implicitWidth + Style.space(10)
+                  implicitHeight: btopBtn.height
+                  anchors.verticalCenter: parent.verticalCenter
+                  color: "transparent"
+                  borderSpec: Border.controlSpec("normal", root.foreground, Color.accent)
+                  radius: Style.cornerRadius
+
+                  Text {
+                    id: heroDetailText
+                    textFormat: Text.PlainText
+                    anchors.centerIn: parent
+                    text: service.gpu.available && service.gpu.powerWatts !== null
+                      ? Math.round(service.gpu.powerWatts) + "W GPU"
+                      : Model.formatPercent(service.cpu.percent) + " CPU"
+                    color: root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.bodySmall
+                    font.bold: true
+                  }
+                }
+
+                PanelActionButton {
+                  id: btopBtn
+                  anchors.verticalCenter: parent.verticalCenter
+                  iconText: "󰄨"
+                  tooltipText: "Open btop (B)"
+                  foreground: root.foreground
+                  fontFamily: root.fontFamily
+                  bordered: true
+                  onClicked: root.launchBtop()
+                }
               }
             }
           }
