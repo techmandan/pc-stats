@@ -158,121 +158,143 @@ Panel {
       else root.toggle()
     }
 
-    // Horizontal bar layout: CPU · RAM · GPU · Network with fixed-width value slots
-    // so digit changes never cause the top bar to jitter.
+    // Horizontal bar layout: CPU · RAM · GPU · Network
+    // Each section keeps its icon tightly paired with its value on the left,
+    // while the outer section Item reserves a fixed width so digit changes
+    // never shift neighboring sections and always leave a clean gap between sections.
     Row {
       id: metricsRow
       visible: !root.vertical
       anchors.centerIn: parent
-      spacing: Style.space(10)
+      spacing: Style.space(14)
 
       // CPU Stat
-      Row {
+      Item {
         visible: root.showCpu
-        spacing: Style.space(4)
+        width: Math.max(
+          cpuInnerRow.implicitWidth,
+          cpuIcon.implicitWidth + Style.space(3) + Math.ceil(barMetrics.advanceWidth(root.showTempOnBar ? "100% 99°C" : "100%"))
+        )
+        height: root.barSize
         anchors.verticalCenter: parent.verticalCenter
 
-        Text {
-          textFormat: Text.PlainText
-          text: "󰍛"
-          color: root.cpuHigh ? root.urgent : root.barDim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
+        Row {
+          id: cpuInnerRow
+          anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-        }
+          spacing: Style.space(3)
 
-        Text {
-          id: cpuBarText
-          textFormat: Text.PlainText
-          text: {
-            var s = Model.formatPercent(service.cpu.percent)
-            if (root.showTempOnBar && service.cpu.tempC !== null) {
-              s += " " + Model.formatTemp(service.cpu.tempC)
-            }
-            return s
+          Text {
+            id: cpuIcon
+            textFormat: Text.PlainText
+            text: "󰍛"
+            color: root.cpuHigh ? root.urgent : root.barDim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            anchors.verticalCenter: parent.verticalCenter
           }
-          width: Math.max(
-            implicitWidth,
-            Math.ceil(barMetrics.advanceWidth(root.showTempOnBar ? "100% 99°C" : "100%"))
-          )
-          horizontalAlignment: Text.AlignRight
-          color: root.cpuHigh ? root.urgent : root.barTextColor
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-          anchors.verticalCenter: parent.verticalCenter
+
+          Text {
+            textFormat: Text.PlainText
+            text: {
+              var s = Model.formatPercent(service.cpu.percent)
+              if (root.showTempOnBar && service.cpu.tempC !== null) {
+                s += " " + Model.formatTemp(service.cpu.tempC)
+              }
+              return s
+            }
+            color: root.cpuHigh ? root.urgent : root.barTextColor
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            anchors.verticalCenter: parent.verticalCenter
+          }
         }
       }
 
       // RAM Stat
-      Row {
+      Item {
         visible: root.showRam
-        spacing: Style.space(4)
+        width: Math.max(
+          ramInnerRow.implicitWidth,
+          ramIcon.implicitWidth + Style.space(3) + Math.ceil(barMetrics.advanceWidth(root.ramFormat === "gb" ? "99.9G" : "100%"))
+        )
+        height: root.barSize
         anchors.verticalCenter: parent.verticalCenter
 
-        Text {
-          textFormat: Text.PlainText
-          text: "󰘚"
-          color: root.ramHigh ? root.urgent : root.barDim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
+        Row {
+          id: ramInnerRow
+          anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-        }
+          spacing: Style.space(3)
 
-        Text {
-          textFormat: Text.PlainText
-          text: Model.formatRamBar(service.ram, root.ramFormat)
-          width: Math.max(
-            implicitWidth,
-            Math.ceil(barMetrics.advanceWidth(root.ramFormat === "gb" ? "99.9G" : "100%"))
-          )
-          horizontalAlignment: Text.AlignRight
-          color: root.ramHigh ? root.urgent : root.barTextColor
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-          anchors.verticalCenter: parent.verticalCenter
+          Text {
+            id: ramIcon
+            textFormat: Text.PlainText
+            text: "󰘚"
+            color: root.ramHigh ? root.urgent : root.barDim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            anchors.verticalCenter: parent.verticalCenter
+          }
+
+          Text {
+            textFormat: Text.PlainText
+            text: Model.formatRamBar(service.ram, root.ramFormat)
+            color: root.ramHigh ? root.urgent : root.barTextColor
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            anchors.verticalCenter: parent.verticalCenter
+          }
         }
       }
 
       // GPU Stat
-      Row {
+      Item {
         visible: root.showGpu && (service.gpu.available || !service.ready)
-        spacing: Style.space(4)
+        width: Math.max(
+          gpuInnerRow.implicitWidth,
+          gpuIcon.implicitWidth + Style.space(3) + Math.ceil(barMetrics.advanceWidth(root.showTempOnBar ? "100% 99°C" : "100%"))
+        )
+        height: root.barSize
         anchors.verticalCenter: parent.verticalCenter
 
-        Text {
-          textFormat: Text.PlainText
-          text: "󰢮"
-          color: root.gpuHigh ? root.urgent : root.barDim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
+        Row {
+          id: gpuInnerRow
+          anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-        }
+          spacing: Style.space(3)
 
-        Text {
-          textFormat: Text.PlainText
-          text: {
-            var s = Model.formatPercent(service.gpu.percent)
-            if (root.showTempOnBar && service.gpu.tempC !== null) {
-              s += " " + Model.formatTemp(service.gpu.tempC)
-            }
-            return s
+          Text {
+            id: gpuIcon
+            textFormat: Text.PlainText
+            text: "󰢮"
+            color: root.gpuHigh ? root.urgent : root.barDim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            anchors.verticalCenter: parent.verticalCenter
           }
-          width: Math.max(
-            implicitWidth,
-            Math.ceil(barMetrics.advanceWidth(root.showTempOnBar ? "100% 99°C" : "100%"))
-          )
-          horizontalAlignment: Text.AlignRight
-          color: root.gpuHigh ? root.urgent : root.barTextColor
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-          anchors.verticalCenter: parent.verticalCenter
+
+          Text {
+            textFormat: Text.PlainText
+            text: {
+              var s = Model.formatPercent(service.gpu.percent)
+              if (root.showTempOnBar && service.gpu.tempC !== null) {
+                s += " " + Model.formatTemp(service.gpu.tempC)
+              }
+              return s
+            }
+            color: root.gpuHigh ? root.urgent : root.barTextColor
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            anchors.verticalCenter: parent.verticalCenter
+          }
         }
       }
 
       // Network Stat
       Row {
         visible: root.showNetwork
-        spacing: Style.space(4)
+        spacing: Style.space(6)
         anchors.verticalCenter: parent.verticalCenter
 
         Text {
@@ -298,69 +320,87 @@ Panel {
         }
 
         // Connected: Total-only mode
-        Text {
+        Item {
           visible: service.network.connected && root.networkFormat === "total"
-          textFormat: Text.PlainText
-          text: Model.formatRateCompact((service.network.rxBytesPerSec || 0) + (service.network.txBytesPerSec || 0))
-          width: Math.max(implicitWidth, Math.ceil(barMetrics.advanceWidth("999.9M")))
-          horizontalAlignment: Text.AlignRight
-          color: root.barTextColor
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-          anchors.verticalCenter: parent.verticalCenter
-        }
-
-        // Connected: Download slot (shown in "both" and "down" modes)
-        Row {
-          visible: service.network.connected && root.networkFormat !== "total"
-          spacing: 1
+          width: Math.max(netTotalText.implicitWidth, Math.ceil(barMetrics.advanceWidth("999.9M")))
+          height: root.barSize
           anchors.verticalCenter: parent.verticalCenter
 
           Text {
-            textFormat: Text.PlainText
-            text: "↓"
-            color: root.barDim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
+            id: netTotalText
+            anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-          }
-
-          Text {
             textFormat: Text.PlainText
-            text: Model.formatRateCompact(service.network.rxBytesPerSec)
-            width: Math.max(implicitWidth, Math.ceil(barMetrics.advanceWidth("999.9M")))
-            horizontalAlignment: Text.AlignRight
+            text: Model.formatRateCompact((service.network.rxBytesPerSec || 0) + (service.network.txBytesPerSec || 0))
             color: root.barTextColor
             font.family: root.fontFamily
             font.pixelSize: Style.font.body
+          }
+        }
+
+        // Connected: Download slot (shown in "both" and "down" modes)
+        Item {
+          visible: service.network.connected && root.networkFormat !== "total"
+          width: Math.max(netDownRow.implicitWidth, Math.ceil(barMetrics.advanceWidth("↓999.9M")))
+          height: root.barSize
+          anchors.verticalCenter: parent.verticalCenter
+
+          Row {
+            id: netDownRow
+            anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
+            spacing: 1
+
+            Text {
+              textFormat: Text.PlainText
+              text: "↓"
+              color: root.barDim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.body
+              anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Text {
+              textFormat: Text.PlainText
+              text: Model.formatRateCompact(service.network.rxBytesPerSec)
+              color: root.barTextColor
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.body
+              anchors.verticalCenter: parent.verticalCenter
+            }
           }
         }
 
         // Connected: Upload slot (shown in "both" mode)
-        Row {
+        Item {
           visible: service.network.connected && root.networkFormat === "both"
-          spacing: 1
+          width: Math.max(netUpRow.implicitWidth, Math.ceil(barMetrics.advanceWidth("↑999.9M")))
+          height: root.barSize
           anchors.verticalCenter: parent.verticalCenter
 
-          Text {
-            textFormat: Text.PlainText
-            text: "↑"
-            color: root.barDim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
+          Row {
+            id: netUpRow
+            anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-          }
+            spacing: 1
 
-          Text {
-            textFormat: Text.PlainText
-            text: Model.formatRateCompact(service.network.txBytesPerSec)
-            width: Math.max(implicitWidth, Math.ceil(barMetrics.advanceWidth("999.9M")))
-            horizontalAlignment: Text.AlignRight
-            color: root.barTextColor
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
-            anchors.verticalCenter: parent.verticalCenter
+            Text {
+              textFormat: Text.PlainText
+              text: "↑"
+              color: root.barDim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.body
+              anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Text {
+              textFormat: Text.PlainText
+              text: Model.formatRateCompact(service.network.txBytesPerSec)
+              color: root.barTextColor
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.body
+              anchors.verticalCenter: parent.verticalCenter
+            }
           }
         }
       }
