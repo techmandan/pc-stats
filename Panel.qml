@@ -20,6 +20,7 @@ Panel {
   readonly property color dim: Qt.darker(foreground, 1.55)
   readonly property color barDim: Qt.darker(barTextColor, 1.45)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
+  readonly property int barIconSize: Math.round(Style.font.body * 1.42)
 
   readonly property bool showCpu: setting("showCpu", true) !== false
   readonly property bool showRam: setting("showRam", true) !== false
@@ -173,7 +174,7 @@ Panel {
         visible: root.showCpu
         width: Math.max(
           cpuInnerRow.implicitWidth,
-          cpuIcon.implicitWidth + Style.space(3) + Math.ceil(barMetrics.advanceWidth(root.showTempOnBar ? "100% 99°C" : "100%"))
+          cpuIcon.width + Style.space(4) + Math.ceil(barMetrics.advanceWidth(root.showTempOnBar ? "100% 99°C" : "100%"))
         )
         height: root.barSize
         anchors.verticalCenter: parent.verticalCenter
@@ -182,15 +183,16 @@ Panel {
           id: cpuInnerRow
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-          spacing: Style.space(3)
+          spacing: Style.space(4)
 
-          Text {
+          OpticalGlyph {
             id: cpuIcon
-            textFormat: Text.PlainText
+            width: Math.ceil(tightWidth)
+            height: Style.bar.iconCanvas
             text: "󰍛"
             color: root.cpuHigh ? root.urgent : root.barDim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
+            fontFamily: root.fontFamily
+            fontSize: root.barIconSize
             anchors.verticalCenter: parent.verticalCenter
           }
 
@@ -216,7 +218,7 @@ Panel {
         visible: root.showRam
         width: Math.max(
           ramInnerRow.implicitWidth,
-          ramIcon.implicitWidth + Style.space(3) + Math.ceil(barMetrics.advanceWidth(root.ramFormat === "gb" ? "99.9G" : "100%"))
+          ramIcon.width + Style.space(4) + Math.ceil(barMetrics.advanceWidth(root.ramFormat === "gb" ? "99.9G" : "100%"))
         )
         height: root.barSize
         anchors.verticalCenter: parent.verticalCenter
@@ -225,15 +227,16 @@ Panel {
           id: ramInnerRow
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-          spacing: Style.space(3)
+          spacing: Style.space(4)
 
-          Text {
+          OpticalGlyph {
             id: ramIcon
-            textFormat: Text.PlainText
+            width: Math.ceil(tightWidth)
+            height: Style.bar.iconCanvas
             text: "󰘚"
             color: root.ramHigh ? root.urgent : root.barDim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
+            fontFamily: root.fontFamily
+            fontSize: root.barIconSize
             anchors.verticalCenter: parent.verticalCenter
           }
 
@@ -253,7 +256,7 @@ Panel {
         visible: root.showGpu && (service.gpu.available || !service.ready)
         width: Math.max(
           gpuInnerRow.implicitWidth,
-          gpuIcon.implicitWidth + Style.space(3) + Math.ceil(barMetrics.advanceWidth(root.showTempOnBar ? "100% 99°C" : "100%"))
+          gpuIcon.width + Style.space(4) + Math.ceil(barMetrics.advanceWidth(root.showTempOnBar ? "100% 99°C" : "100%"))
         )
         height: root.barSize
         anchors.verticalCenter: parent.verticalCenter
@@ -262,15 +265,16 @@ Panel {
           id: gpuInnerRow
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
-          spacing: Style.space(3)
+          spacing: Style.space(4)
 
-          Text {
+          OpticalGlyph {
             id: gpuIcon
-            textFormat: Text.PlainText
+            width: Math.ceil(tightWidth)
+            height: Style.bar.iconCanvas
             text: "󰢮"
             color: root.gpuHigh ? root.urgent : root.barDim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
+            fontFamily: root.fontFamily
+            fontSize: root.barIconSize
             anchors.verticalCenter: parent.verticalCenter
           }
 
@@ -294,17 +298,19 @@ Panel {
       // Network Stat
       Row {
         visible: root.showNetwork
-        spacing: Style.space(6)
+        spacing: Style.space(5)
         anchors.verticalCenter: parent.verticalCenter
 
-        Text {
-          textFormat: Text.PlainText
+        OpticalGlyph {
+          id: netIcon
+          width: Math.ceil(tightWidth)
+          height: Style.bar.iconCanvas
           text: !service.network.connected
             ? "󰤮"
             : (service.network.kind === "wifi" ? "󰤨" : "󰈀")
           color: !service.network.connected ? root.urgent : root.barDim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.body
+          fontFamily: root.fontFamily
+          fontSize: root.barIconSize
           anchors.verticalCenter: parent.verticalCenter
         }
 
@@ -356,7 +362,7 @@ Panel {
               text: "↓"
               color: root.barDim
               font.family: root.fontFamily
-              font.pixelSize: Style.font.body
+              font.pixelSize: Style.font.subtitle
               anchors.verticalCenter: parent.verticalCenter
             }
 
@@ -389,7 +395,7 @@ Panel {
               text: "↑"
               color: root.barDim
               font.family: root.fontFamily
-              font.pixelSize: Style.font.body
+              font.pixelSize: Style.font.subtitle
               anchors.verticalCenter: parent.verticalCenter
             }
 
@@ -408,7 +414,7 @@ Panel {
       // Fallback icon if user hides all 4 metrics
       PcStatsIcon {
         visible: !root.showCpu && !root.showRam && !root.showGpu && !root.showNetwork
-        iconSize: Style.space(16)
+        iconSize: Style.space(18)
         color: root.barTextColor
         anchors.verticalCenter: parent.verticalCenter
       }
@@ -418,7 +424,7 @@ Panel {
     PcStatsIcon {
       visible: root.vertical
       anchors.centerIn: parent
-      iconSize: Style.space(16)
+      iconSize: Style.space(18)
       color: (root.cpuHigh || root.ramHigh || root.gpuHigh) ? root.urgent : root.barTextColor
     }
   }
